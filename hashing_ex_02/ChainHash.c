@@ -10,7 +10,7 @@ static int hash(int key, int size)
 }
 
 // Set Member Data in Node
-static void SetNode(Node *n, const Member *x, const Node *next)
+static void SetNode(Node *n, const Member *x, Node *next)
 {
   n->data = *x;   // data
   n->next = next; // next data
@@ -19,7 +19,7 @@ static void SetNode(Node *n, const Member *x, const Node *next)
 // Initialize Hash Table
 int Initialize(ChainHash *h, int size)
 {
-  if((h->table = calloc(size, sizeof(Node *))) == NULL)
+  if((h->table = (Node **)calloc(size, sizeof(Node *))) == NULL)
   {
     h->size = 0;
     return 0;
@@ -28,7 +28,7 @@ int Initialize(ChainHash *h, int size)
   h->size = 0;
   for(int idx = 0; idx < size; idx++) // Set all bucket NULL
     h->table[idx] = NULL;
-    return 1;
+  return 1;
 }
 
 // Search Hash Table
@@ -60,11 +60,11 @@ int Add(ChainHash *h, const Member *x)
     p = p->next;  // Move next node
   }
 
-  if((temp = calloc(1, sizeof(Node))) == NULL)
-    return 2;
+  if((temp = (Node *)calloc(1, sizeof(Node))) == NULL)
+    return 1;
   SetNode(temp, x, h->table[key]);  // Set data in Add node
   h->table[key] = temp;
-  return 0; // Add success
+  return 2; // Add success
 }
 
 // Delete Data
