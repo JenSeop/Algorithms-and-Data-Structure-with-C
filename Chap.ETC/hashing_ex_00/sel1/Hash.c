@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define BUCKET_SIZE 10007 // 20011 10007
+#define BUCKET_SIZE 10007 // 20011 10007 100003
 #define REV_ENDIAN(n) ((uint16_t)(((n) >> 8) | (n) << 8))
 
 struct Bucket* hashTable = NULL; 
@@ -16,8 +16,7 @@ struct Tuples {
 };
 
 struct Node {
-    int key;
-    int val;
+    uint32_t id;
     struct Tuples tuple;
     struct Node* next;
 };
@@ -27,67 +26,40 @@ struct Bucket{
     int count;
 };
 
-struct Node* createNode(int key, int val, struct Tuples tuple){
+uint32_t hashSession(struct Tuples tuple){
+    uint32_t hash = 5381;
+    hash = ((hash << 5) + hash) ^ (tuple.src_ip>>24) ^ (tuple.dst_ip>>24);
+    hash = ((hash << 5) + hash) ^ (tuple.src_ip<<16) ^ (tuple.dst_ip<<16);
+    hash = ((hash << 5) + hash) ^ (tuple.src_ip>>8) ^ (tuple.dst_ip>>8);
+    hash = ((hash << 5) + hash) ^ (tuple.src_ip<<0) ^ (tuple.dst_ip<<0);
+    hash = ((hash << 5) + hash) ^ (tuple.src_port) ^ (tuple.protocol);
+    hash = ((hash << 5) + hash) ^ (tuple.dst_port) ^ (tuple.protocol);
+
+    return hash % BUCKET_SIZE;
+}
+
+struct Node* createNode(uint32_t id, struct Tuples tuple){
     struct Node* newNode;
 
     newNode = (struct Node *)malloc(sizeof(struct Node));
 
-    newNode->key = key;
-    newNode->val = val;
+    newNode->id = id;
     newNode->tuple = tuple;
     newNode->next = NULL;
 
     return newNode;
 }
 
-uint32_t hashSession(struct Tuples tuple){
-    uint32_t hash = 5381;
-
-    hash = ((hash << 5) + hash) ^ (tuple.src_ip ^ tuple.dst_ip);
-    hash = ((hash << 5) + hash) ^ tuple.src_port;
-    hash = ((hash << 5) + hash) ^ tuple.dst_port;
-    hash = ((hash << 5) + hash) ^ tuple.protocol;
+void add(uint32_t id, struct Tuples tuple){
     
-    return hash % BUCKET_SIZE;
-}
-
-uint32_t hashSession2(struct Tuples tuple){
-    uint32_t hash = 5381;
-
-    hash += tuple.src_ip ^ tuple.dst_ip | tuple.src_port ^ tuple.dst_port | tuple.protocol;
-
-    return hash % BUCKET_SIZE;
-}
-
-uint32_t hashSession3(struct Tuples tuple){
-    uint32_t hash = hashSession(tuple);
-    uint32_t BitsUint32 = sizeof(uint32_t) * 24;
-    uint32_t TwelveSisteen = (BitsUint32 * 12) / 16;
-    uint32_t OneEighth = BitsUint32 / 8;
-    uint32_t HighBits = 0XFFFFFFFF << (BitsUint32 - OneEighth);
-
-    for (int idx = 0; idx < 5; idx++)
-    {
-        hash = (hash << OneEighth) + hash;
-        if(hash & HighBits)
-        {
-            hash = ((hash ^ (hash >> TwelveSisteen)) & HighBits);
-        }
-    }
-    return hash % BUCKET_SIZE;
-}
-
-void add(int key, int val, struct Tuples tuple){
+    uint32_t hashIndex = hashSession(tuple);
     
-    int hashIndex = hashSession(tuple);
-    
-    struct Node* newNode = createNode(key, val, tuple);
+    struct Node* newNode = createNode(id, tuple);
     
     if (hashTable[hashIndex].count == 0){
         hashTable[hashIndex].count = 1;
         hashTable[hashIndex].head = newNode;
     }
-    
     else{
         newNode->next = hashTable[hashIndex].head;
         hashTable[hashIndex].head = newNode;
@@ -95,8 +67,8 @@ void add(int key, int val, struct Tuples tuple){
     }
 }
 
-void remove_key(int key, struct Tuples tuple){
-    int hashIndex = hashSession(tuple);
+void remove_id(uint32_t id, struct Tuples tuple){
+    uint32_t hashIndex = hashSession(tuple);
     
     int flg = 0;
     
@@ -107,7 +79,7 @@ void remove_key(int key, struct Tuples tuple){
     
     while (node)
     {
-        if (node->key == key){
+        if (node->id == id){
             
             if (node == hashTable[hashIndex].head){
                 hashTable[hashIndex].head = node->next;
@@ -125,25 +97,25 @@ void remove_key(int key, struct Tuples tuple){
     }
     
     if (flg)
-        printf("\n [ %d ] deleted.\n", key);
+        printf("\n [ %d ] deleted.\n", id);
     else
-        printf("\n [ %d ] donst exist.\n", key);
+        printf("\n [ %d ] donst exist.\n", id);
 }
 
-void search(int key, struct Tuples tuple){
-    int hashIndex = hashSession(tuple);
+void search(uint32_t id, struct Tuples tuple){
+    uint32_t hashIndex = hashSession(tuple);
     struct Node* node = hashTable[hashIndex].head;
     int flg = 0;
     while (node)
     {
-        if (node->key == key){
+        if (node->id == id){
             flg = 1;
             break;
         }
         node = node->next;
     }
     if (flg)
-        printf("\n key [ %d ], val [ %d ]\n", node->key, node->val);
+        printf("\n id [ %d ]\n", node->id);
     else
         printf("\n dont exist. \n");
 }
@@ -166,7 +138,7 @@ void display(){
                     col++;
                 else
                     non_col++;
-                printf("Session[%u] = { src_ip %d.%d.%d.%d, dst_ip %d.%d.%d.%d, src_port %u, dst_port %u, proto %u}  ->\n",
+                printf("Session[%u] = { src_ip %d.%d.%d.%d, dst_ip %d.%d.%d.%d, src_port %u, dst_port %u, proto %u}\n",
                     hashSession(iterator->tuple),
 
                     (iterator->tuple.src_ip>>24) & 0XFF,(iterator->tuple.src_ip>>16) & 0XFF,
@@ -191,10 +163,11 @@ void display(){
 int main(){
     
     hashTable = (struct Bucket *)malloc(BUCKET_SIZE * sizeof(struct Bucket));
+    struct Tuples tuples = { 3232235777, 2886794753, 53764, 20480, 6};
     
-    for (int i=0; i < 39; i++){
+    for (int i=0; i < 10000; i++){
         struct Tuples tuple = { 3232235777 + i, 2886794753 - i, 53764, 20480, 6 + (i/10)};
-        add(i, 10*i, tuple);
+        add(i, tuple);
     }
 
     display();
