@@ -28,9 +28,9 @@ struct Bucket{
 
 uint32_t hashSession(struct Tuples tuple){
     uint32_t hash = 5381;
-    hash = ((hash << 5) + hash) ^ (tuple.src_ip>>24) ^ (tuple.dst_ip>>24);
+    hash = ((hash << 5) + hash) ^ (tuple.src_ip<<24) ^ (tuple.dst_ip<<24);
     hash = ((hash << 5) + hash) ^ (tuple.src_ip<<16) ^ (tuple.dst_ip<<16);
-    hash = ((hash << 5) + hash) ^ (tuple.src_ip>>8) ^ (tuple.dst_ip>>8);
+    hash = ((hash << 5) + hash) ^ (tuple.src_ip<<8) ^ (tuple.dst_ip<<8);
     hash = ((hash << 5) + hash) ^ (tuple.src_ip<<0) ^ (tuple.dst_ip<<0);
     hash = ((hash << 5) + hash) ^ (tuple.src_port) ^ (tuple.protocol);
     hash = ((hash << 5) + hash) ^ (tuple.dst_port) ^ (tuple.protocol);
@@ -138,7 +138,7 @@ void display(){
                     col++;
                 else
                     non_col++;
-                printf("Session[%u] = { src_ip %d.%d.%d.%d, dst_ip %d.%d.%d.%d, src_port %u, dst_port %u, proto %u}\n",
+                printf("Session[%u]\tsrc_ip %d.%d.%d.%d\tdst_ip %d.%d.%d.%d\tsrc_port %u\tdst_port %u\tproto %u\n",
                     hashSession(iterator->tuple),
 
                     (iterator->tuple.src_ip>>24) & 0XFF,(iterator->tuple.src_ip>>16) & 0XFF,
